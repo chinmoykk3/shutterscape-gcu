@@ -1,112 +1,74 @@
-import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/db";
-import { Member } from "@/models/Member";
-import { memberSchema } from "@/lib/validations";
-import { deleteImage } from "@/lib/cloudinary";
+import { NextRequest, NextResponse } from 'next/server';
+import { connectDB } from '@/lib/db';
+import { Member } from '@/models/Member';
+import { verifyAdminRequest } from '@/lib/auth';
+import { memberSchema } from '@/lib/validations';
+import { deleteFromCloudinary } from '@/lib/cloudinary';
 
-// GET /api/members/[id]
-export async function GET(
-  _request: NextRequest,
+export async function PUT(
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectDB();
-    const member = await Member.findById(params.id).lean();
-
-    if (!member) {
-      return NextResponse.json(
-        { error: "Member not found" },
-        { status: 404 }
-      );
+    const admin = await verifyAdminRequest(req);
+    if (!admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    return NextResponse.json(member);
-  } catch (error) {
-    console.error("GET member error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch member" },
-      { status: 500 }
-    );
-  }
-}
-
-// PUT /api/members/[id]
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const body = await request.json();
+    const body = await req.json();
     const parsed = memberSchema.safeParse(body);
-
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.issues[0]?.message || 'Validation failed' },
         { status: 400 }
       );
     }
 
     await connectDB();
-
-    const updateData: Record<string, unknown> = {
-      name: parsed.data.name,
-      role: parsed.data.role,
-      category: parsed.data.category,
-      order: parsed.data.order ?? 0,
-    };
-
-    if (body.imageUrl !== undefined) {
-      updateData.imageUrl = body.imageUrl;
-      updateData.imagePublicId = body.imagePublicId;
+    const existing = await Member.findById(params.id);
+    if (!existing) {
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 
-    const member = await Member.findByIdAndUpdate(params.id, updateData, {
-      new: true,
-    });
-
-    if (!member) {
-      return NextResponse.json(
-        { error: "Member not found" },
-        { status: 404 }
-      );
+    if (existing.image.publicId !== parsed.data.image.publicId) {
+      await deleteFromCloudinary(existing.image.publicId);
     }
 
-    return NextResponse.json(member);
-  } catch (error) {
-    console.error("PUT member error:", error);
-    return NextResponse.json(
-      { error: "Failed to update member" },
-      { status: 500 }
-    );
+    existing.name = parsed.data.name;
+    existing.role = parsed.data.role;
+    existing.type = parsed.data.type;
+    existing.image = parsed.data.image;
+    existing.order = parsed.data.order;
+    existing.batch = parsed.data.batch;
+    await existing.save();
+
+    return NextResponse.json(existing);
+  } catch {
+    return NextResponse.json({ error: 'Failed to update member' }, { status: 500 });
   }
 }
 
-// DELETE /api/members/[id]
 export async function DELETE(
-  _request: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const admin = await verifyAdminRequest(req);
+    if (!admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     await connectDB();
-    const member = await Member.findByIdAndDelete(params.id);
-
-    if (!member) {
-      return NextResponse.json(
-        { error: "Member not found" },
-        { status: 404 }
-      );
+    const existing = await Member.findById(params.id);
+    if (!existing) {
+      return NextResponse.json({ error: 'Member not found' }, { status: 404 });
     }
 
-    if (member.imagePublicId) {
-      await deleteImage(member.imagePublicId);
-    }
+    await deleteFromCloudinary(existing.image.publicId);
+    await existing.deleteOne();
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("DELETE member error:", error);
-    return NextResponse.json(
-      { error: "Failed to delete member" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: 'Deleted successfully' });
+  } catch {
+    return NextResponse.json({ error: 'Failed to delete member' }, { status: 500 });
   }
 }

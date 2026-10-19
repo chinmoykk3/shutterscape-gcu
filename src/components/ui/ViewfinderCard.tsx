@@ -1,55 +1,29 @@
-"use client";
-
-import Image from "next/image";
-import { motion } from "framer-motion";
-import { cn, optimizedImageUrl } from "@/lib/utils";
+import React from 'react';
+import { cn } from '@/lib/utils';
 
 interface ViewfinderCardProps {
-  imageUrl: string;
-  title: string;
-  subtitle?: string;
+  children: React.ReactNode;
   className?: string;
-  onClick?: () => void;
+  highlighted?: boolean;
 }
 
-export default function ViewfinderCard({
-  imageUrl,
-  title,
-  subtitle,
-  className,
-  onClick,
-}: ViewfinderCardProps) {
+export function ViewfinderCard({ children, className, highlighted = false }: ViewfinderCardProps) {
   return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+    <div
       className={cn(
-        "group relative overflow-hidden rounded-2xl bg-dark-200 cursor-pointer",
+        'relative rounded-2xl bg-darkroom-900/90 border p-6 transition-all duration-300 group',
+        highlighted
+          ? 'border-amber-500/80 shadow-[0_0_30px_-5px_rgba(245,158,11,0.25)]'
+          : 'border-white/10 hover:border-amber-500/40',
         className
       )}
-      onClick={onClick}
     >
-      {/* Image */}
-      <div className="relative aspect-[4/3] overflow-hidden">
-        <Image
-          src={optimizedImageUrl(imageUrl)}
-          alt={title}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-110"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        />
-        {/* Viewfinder overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-        <div className="absolute inset-4 border border-white/20 rounded-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      </div>
-
-      {/* Info */}
-      <div className="absolute bottom-0 left-0 right-0 p-4">
-        <h3 className="text-white font-semibold text-lg leading-tight">{title}</h3>
-        {subtitle && (
-          <p className="text-gray-300 text-sm mt-1">{subtitle}</p>
-        )}
-      </div>
-    </motion.div>
+      {/* Subtle Camera Viewfinder Corner Brackets */}
+      <span className="pointer-events-none absolute top-2.5 left-2.5 h-3 w-3 border-t-2 border-l-2 border-amber-500/40 group-hover:border-amber-400 transition-colors" />
+      <span className="pointer-events-none absolute top-2.5 right-2.5 h-3 w-3 border-t-2 border-r-2 border-amber-500/40 group-hover:border-amber-400 transition-colors" />
+      <span className="pointer-events-none absolute bottom-2.5 left-2.5 h-3 w-3 border-b-2 border-l-2 border-amber-500/40 group-hover:border-amber-400 transition-colors" />
+      <span className="pointer-events-none absolute bottom-2.5 right-2.5 h-3 w-3 border-b-2 border-r-2 border-amber-500/40 group-hover:border-amber-400 transition-colors" />
+      {children}
+    </div>
   );
 }

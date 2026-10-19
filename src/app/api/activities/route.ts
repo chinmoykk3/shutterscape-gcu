@@ -1,53 +1,48 @@
-import { NextRequest, NextResponse } from "next/server";
-import { connectDB } from "@/lib/db";
-import { Activity } from "@/models/Activity";
-import { activitySchema } from "@/lib/validations";
-import { sanitize } from "@/lib/sanitize";
+import { NextRequest, NextResponse } from 'next/server';
+import { connectDB } from '@/lib/db';
+import { Activity } from '@/models/Activity';
+import { verifyAdminRequest } from '@/lib/auth';
+import { activitySchema } from '@/lib/validations';
+import { sanitizeRichText } from '@/lib/sanitize';
 
-// GET /api/activities — list all activities
 export async function GET() {
   try {
     await connectDB();
     const activities = await Activity.find().sort({ date: -1 }).lean();
     return NextResponse.json(activities);
-  } catch (error) {
-    console.error("GET activities error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch activities" },
-      { status: 500 }
-    );
+  } catch {
+    return NextResponse.json({ error: 'Failed to fetch activities' }, { status: 500 });
   }
 }
 
-// POST /api/activities — create a new activity (protected by middleware)
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const parsed = activitySchema.safeParse(body);
+    const admin = await verifyAdminRequest(req);
+    if (!admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
+    const body = await req.json();
+    const parsed = activitySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: parsed.error.errors[0].message },
+        { error: parsed.error.issues[0]?.message || 'Validation failed' },
         { status: 400 }
       );
     }
 
     await connectDB();
+    const cleanHtml = sanitizeRichText(parsed.data.descriptionHtml);
 
-    const activity = await Activity.create({
+    const created = await Activity.create({
       title: parsed.data.title,
-      description: sanitize(parsed.data.description),
       date: new Date(parsed.data.date),
-      imageUrl: body.imageUrl,
-      imagePublicId: body.imagePublicId,
+      descriptionHtml: cleanHtml,
+      image: parsed.data.image,
     });
 
-    return NextResponse.json(activity, { status: 201 });
-  } catch (error) {
-    console.error("POST activity error:", error);
-    return NextResponse.json(
-      { error: "Failed to create activity" },
-      { status: 500 }
-    );
+    return NextResponse.json(created, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: 'Failed to create activity' }, { status: 500 });
   }
 }
