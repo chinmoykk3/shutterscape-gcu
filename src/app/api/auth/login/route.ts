@@ -1,66 +1,62 @@
-import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { connectDB } from "@/lib/db";
-import { Admin } from "@/models/Admin";
-import { signToken, setAuthCookie } from "@/lib/auth";
-import { loginSchema } from "@/lib/validations";
-import { rateLimit } from "@/lib/rateLimit";
+import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
+import { connectDB } from '@/lib/db';
+import { Admin } from '@/models/Admin';
+import { loginSchema } from '@/lib/validations';
+import { AUTH_COOKIE_NAME, signAdminToken } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rateLimit';
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    // Rate limiting
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      "unknown";
-    const { allowed } = rateLimit(ip);
-    if (!allowed) {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+    const rate = checkRateLimit(ip, 5, 15 * 60 * 1000);
+
+    if (!rate.allowed) {
       return NextResponse.json(
-        { error: "Too many login attempts. Try again later." },
+        { error: `Too many login attempts. Try again in ${rate.retryAfterSeconds}s.` },
         { status: 429 }
       );
     }
 
-    const body = await request.json();
+    const body = await req.json();
     const parsed = loginSchema.safeParse(body);
-
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.errors[0].message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 400 });
     }
 
     await connectDB();
-
-    const admin = await Admin.findOne({ username: parsed.data.username });
+    const admin = await Admin.findOne({ email: parsed.data.email.toLowerCase() });
     if (!admin) {
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const isValid = await bcrypt.compare(parsed.data.password, admin.password);
-    if (!isValid) {
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 }
-      );
+    const passwordValid = await bcrypt.compare(parsed.data.password, admin.passwordHash);
+    if (!passwordValid) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const token = await signToken({
-      sub: admin._id.toString(),
-      username: admin.username,
+    const token = await signAdminToken({
+      sub: String(admin._id),
+      email: admin.email,
+      name: admin.name,
     });
 
-    await setAuthCookie(token);
+    const res = NextResponse.json({
+      message: 'Authenticated',
+      admin: { name: admin.name, email: admin.email },
+    });
 
-    return NextResponse.json({ success: true });
+    res.cookies.set(AUTH_COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 60 * 60 * 12, // 12 hours
+    });
+
+    return res;
   } catch (error) {
-    console.error("Login error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error('Login error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

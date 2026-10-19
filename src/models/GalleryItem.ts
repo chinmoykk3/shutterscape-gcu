@@ -1,28 +1,26 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IGalleryItem extends Document {
-  title: string;
+  image: {
+    url: string;
+    publicId: string;
+  };
+  caption: string;
   category: string;
-  imageUrl: string;
-  imagePublicId: string;
-  photographer: string;
   createdAt: Date;
-  updatedAt: Date;
 }
 
 const GalleryItemSchema = new Schema<IGalleryItem>(
   {
-    title: { type: String, required: true, trim: true },
-    category: { type: String, required: true, trim: true },
-    imageUrl: { type: String, required: true },
-    imagePublicId: { type: String, required: true },
-    photographer: { type: String, default: "", trim: true },
+    image: {
+      url: { type: String, required: true },
+      publicId: { type: String, required: true },
+    },
+    caption: { type: String, required: true, trim: true },
+    category: { type: String, required: true, index: true },
   },
   { timestamps: true }
 );
 
-GalleryItemSchema.index({ category: 1 });
-
-export const GalleryItem =
-  mongoose.models.GalleryItem ||
-  mongoose.model<IGalleryItem>("GalleryItem", GalleryItemSchema);
+export const GalleryItem: Model<IGalleryItem> =
+  mongoose.models.GalleryItem || mongoose.model<IGalleryItem>('GalleryItem', GalleryItemSchema);

@@ -1,11 +1,13 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IActivity extends Document {
   title: string;
-  description: string;
   date: Date;
-  imageUrl: string;
-  imagePublicId: string;
+  descriptionHtml: string;
+  image: {
+    url: string;
+    publicId: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -13,16 +15,15 @@ export interface IActivity extends Document {
 const ActivitySchema = new Schema<IActivity>(
   {
     title: { type: String, required: true, trim: true },
-    description: { type: String, required: true },
-    date: { type: Date, required: true },
-    imageUrl: { type: String, required: true },
-    imagePublicId: { type: String, required: true },
+    date: { type: Date, required: true, index: true },
+    descriptionHtml: { type: String, required: true },
+    image: {
+      url: { type: String, required: true },
+      publicId: { type: String, required: true },
+    },
   },
   { timestamps: true }
 );
 
-ActivitySchema.index({ date: -1 });
-
-export const Activity =
-  mongoose.models.Activity ||
-  mongoose.model<IActivity>("Activity", ActivitySchema);
+export const Activity: Model<IActivity> =
+  mongoose.models.Activity || mongoose.model<IActivity>('Activity', ActivitySchema);
