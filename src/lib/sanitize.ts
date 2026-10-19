@@ -1,25 +1,17 @@
-import sanitizeHtml from "sanitize-html";
+import sanitizeHtml from 'sanitize-html';
 
-const ALLOWED_TAGS = [
-  "h1", "h2", "h3", "h4", "h5", "h6",
-  "p", "br", "hr",
-  "ul", "ol", "li",
-  "strong", "em", "u", "s", "code", "pre", "blockquote",
-  "a", "img",
-  "span", "div",
-];
-
-const ALLOWED_ATTRIBUTES: Record<string, string[]> = {
-  a: ["href", "target", "rel"],
-  img: ["src", "alt", "width", "height"],
-  span: ["style"],
-  "*": ["class"],
-};
-
-export function sanitize(dirty: string): string {
-  return sanitizeHtml(dirty, {
-    allowedTags: ALLOWED_TAGS,
-    allowedAttributes: ALLOWED_ATTRIBUTES,
-    allowedSchemes: ["https", "http", "mailto"],
+export function sanitizeRichText(dirtyHtml: string): string {
+  return sanitizeHtml(dirtyHtml, {
+    allowedTags: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'a'],
+    allowedAttributes: {
+      a: ['href', 'target', 'rel'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    transformTags: {
+      a: sanitizeHtml.simpleTransform('a', {
+        target: '_blank',
+        rel: 'noopener noreferrer',
+      }),
+    },
   });
 }

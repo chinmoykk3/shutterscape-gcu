@@ -2,78 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-
-  html {
-    scroll-behavior: smooth;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  body {
-    @apply bg-dark text-white;
-  }
-
-  /* Scrollbar styling */
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: #0a0a0a;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: #323232;
-    border-radius: 3px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #404040;
-  }
+:root {
+  color-scheme: dark;
 }
 
-@layer components {
-  .section-heading {
-    @apply text-3xl md:text-4xl font-display font-bold text-white text-center;
-  }
-
-  .section-subheading {
-    @apply text-gray-400 text-center max-w-2xl mx-auto mt-3;
-  }
-
-  .btn-primary {
-    @apply inline-flex items-center gap-2 px-6 py-3 bg-primary-500 text-white font-medium rounded-xl
-    hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/25 hover:shadow-primary-500/40;
-  }
-
-  .btn-secondary {
-    @apply inline-flex items-center gap-2 px-6 py-3 bg-dark-200 text-gray-300 font-medium rounded-xl
-    border border-white/10 hover:bg-dark-300 hover:text-white transition-all;
-  }
-
-  .glass-card {
-    @apply bg-dark-100/50 backdrop-blur-xl border border-white/10 rounded-2xl;
-  }
+body {
+  background-color: #09090b;
+  color: #fafafa;
+  overflow-x: hidden;
 }
 
-/* Tiptap prose styling */
-.ProseMirror {
-  min-height: 200px;
-  outline: none;
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
 }
 
-.ProseMirror h1 { @apply text-2xl font-bold mb-4; }
-.ProseMirror h2 { @apply text-xl font-bold mb-3; }
-.ProseMirror h3 { @apply text-lg font-bold mb-2; }
-.ProseMirror p { @apply mb-3 leading-relaxed; }
-.ProseMirror ul { @apply list-disc pl-6 mb-3; }
-.ProseMirror ol { @apply list-decimal pl-6 mb-3; }
-.ProseMirror blockquote { @apply border-l-4 border-primary-500 pl-4 italic text-gray-400 my-4; }
-.ProseMirror a { @apply text-primary-400 underline; }
-.ProseMirror img { @apply rounded-lg max-w-full my-4; }
+::-webkit-scrollbar-track {
+  background: #09090b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #f59e0b;
+}
+
+/* Safe Rich Text Output Styling */
+.rich-text-content p {
+  margin-bottom: 0.75rem;
+  line-height: 1.7;
+  color: #d4d4d8;
+}
+
+.rich-text-content strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.rich-text-content em {
+  font-style: italic;
+  color: #e4e4e7;
+}
+
+.rich-text-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #d4d4d8;
+}
+
+.rich-text-content ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #d4d4d8;
+}
+
+.rich-text-content a {
+  color: #f59e0b;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.rich-text-content a:hover {
+  color: #fbbf24;
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

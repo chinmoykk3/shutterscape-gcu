@@ -1,54 +1,53 @@
-import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { SignJWT, jwtVerify } from 'jose';
+import { cookies } from 'next/headers';
+import { NextRequest } from 'next/server';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "fallback-secret-change-me"
-);
+export const AUTH_COOKIE_NAME = 'shutterscape_admin_token';
 
-const COOKIE_NAME = "auth-token";
-const TOKEN_EXPIRY = "7d";
+function getJwtSecretKey(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 16) {
+    throw new Error('JWT_SECRET environment variable is missing or too short.');
+  }
+  return new TextEncoder().encode(secret);
+}
 
-export interface TokenPayload {
+export interface AdminJwtPayload {
   sub: string;
-  username: string;
+  email: string;
+  name: string;
 }
 
-export async function signToken(payload: TokenPayload): Promise<string> {
+export async function signAdminToken(payload: AdminJwtPayload): Promise<string> {
   return new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: "HS256" })
+    .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime(TOKEN_EXPIRY)
-    .sign(JWT_SECRET);
+    .setExpirationTime('12h')
+    .sign(getJwtSecretKey());
 }
 
-export async function verifyToken(
-  token: string
-): Promise<TokenPayload | null> {
+export async function verifyAdminToken(token: string): Promise<AdminJwtPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as unknown as TokenPayload;
+    const { payload } = await jwtVerify(token, getJwtSecretKey());
+    return {
+      sub: String(payload.sub),
+      email: String(payload.email),
+      name: String(payload.name),
+    };
   } catch {
     return null;
   }
 }
 
-export async function setAuthCookie(token: string) {
-  const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-    path: "/",
-  });
+export async function getServerAdmin(): Promise<AdminJwtPayload | null> {
+  const cookieStore = cookies();
+  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifyAdminToken(token);
 }
 
-export async function removeAuthCookie() {
-  const cookieStore = await cookies();
-  cookieStore.delete(COOKIE_NAME);
-}
-
-export async function getAuthToken(): Promise<string | undefined> {
-  const cookieStore = await cookies();
-  return cookieStore.get(COOKIE_NAME)?.value;
+export async function verifyAdminRequest(req: NextRequest): Promise<AdminJwtPayload | null> {
+  const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifyAdminToken(token);
 }

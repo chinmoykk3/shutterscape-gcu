@@ -1,33 +1,30 @@
-interface RateLimitEntry {
+interface RateRecord {
   count: number;
-  resetTime: number;
+  resetAt: number;
 }
 
-const ipMap = new Map<string, RateLimitEntry>();
+const store = new Map<string, RateRecord>();
 
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const MAX_ATTEMPTS = 5;
-
-export function rateLimit(ip: string): { allowed: boolean; remaining: number } {
+export function checkRateLimit(
+  ip: string,
+  maxRequests = 5,
+  windowMs = 15 * 60 * 1000
+): { allowed: boolean; retryAfterSeconds: number } {
   const now = Date.now();
-  const entry = ipMap.get(ip);
+  const record = store.get(ip);
 
-  // Clean up expired entries periodically
-  if (ipMap.size > 10000) {
-    for (const [key, val] of ipMap) {
-      if (now > val.resetTime) ipMap.delete(key);
-    }
+  if (!record || now > record.resetAt) {
+    store.set(ip, { count: 1, resetAt: now + windowMs });
+    return { allowed: true, retryAfterSeconds: 0 };
   }
 
-  if (!entry || now > entry.resetTime) {
-    ipMap.set(ip, { count: 1, resetTime: now + WINDOW_MS });
-    return { allowed: true, remaining: MAX_ATTEMPTS - 1 };
+  if (record.count >= maxRequests) {
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.ceil((record.resetAt - now) / 1000),
+    };
   }
 
-  if (entry.count >= MAX_ATTEMPTS) {
-    return { allowed: false, remaining: 0 };
-  }
-
-  entry.count++;
-  return { allowed: true, remaining: MAX_ATTEMPTS - entry.count };
+  record.count += 1;
+  return { allowed: true, retryAfterSeconds: 0 };
 }

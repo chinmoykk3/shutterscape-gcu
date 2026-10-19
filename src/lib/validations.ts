@@ -1,44 +1,35 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-/* ── Auth ─────────────────────────────────────────────────────────── */
+export const imageSchema = z.object({
+  url: z.string().url('Valid image URL is required'),
+  publicId: z.string().min(1, 'Image publicId is required'),
+});
 
 export const loginSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
-
-/* ── Activity ─────────────────────────────────────────────────────── */
 
 export const activitySchema = z.object({
-  title: z.string().min(1, "Title is required").max(200),
-  description: z.string().min(1, "Description is required"),
-  date: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date",
+  title: z.string().min(3, 'Title must be at least 3 characters').max(140),
+  date: z.string().refine((val) => !Number.isNaN(Date.parse(val)), {
+    message: 'Valid date is required',
   }),
+  descriptionHtml: z.string().min(10, 'Description is too short'),
+  image: imageSchema,
 });
-
-/* ── Gallery Item ─────────────────────────────────────────────────── */
 
 export const galleryItemSchema = z.object({
-  title: z.string().min(1, "Title is required").max(200),
-  category: z.string().min(1, "Category is required").max(100),
-  photographer: z.string().max(200).optional(),
+  caption: z.string().min(2, 'Caption is required').max(200),
+  category: z.enum(['Events', 'Nature', 'Portraits', 'Street', 'Campus', 'Astrophotography']),
+  image: imageSchema,
 });
-
-/* ── Member ───────────────────────────────────────────────────────── */
 
 export const memberSchema = z.object({
-  name: z.string().min(1, "Name is required").max(200),
-  role: z.string().min(1, "Role is required").max(200),
-  category: z.enum(["faculty", "core", "alumni"], {
-    errorMap: () => ({ message: "Category must be faculty, core, or alumni" }),
-  }),
-  order: z.number().int().min(0).optional(),
+  name: z.string().min(2, 'Name is required').max(100),
+  role: z.string().min(2, 'Role is required').max(100),
+  type: z.enum(['faculty', 'core', 'alumni']),
+  image: imageSchema,
+  order: z.coerce.number().int().min(0).default(0),
+  batch: z.string().max(40).optional().or(z.literal('')),
 });
-
-/* ── Types ────────────────────────────────────────────────────────── */
-
-export type LoginInput = z.infer<typeof loginSchema>;
-export type ActivityInput = z.infer<typeof activitySchema>;
-export type GalleryItemInput = z.infer<typeof galleryItemSchema>;
-export type MemberInput = z.infer<typeof memberSchema>;
