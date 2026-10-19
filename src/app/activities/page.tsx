@@ -1,92 +1,129 @@
-import Image from "next/image";
-import { connectDB } from "@/lib/db";
-import { Activity } from "@/models/Activity";
-import { optimizedImageUrl } from "@/lib/utils";
+import React from 'react';
+import type { Metadata } from 'next';
+import Image from 'next/image';
+import { Calendar } from 'lucide-react';
+import { connectDB } from '@/lib/db';
+import { Activity } from '@/models/Activity';
+import { ViewfinderCard } from '@/components/ui/ViewfinderCard';
+import { BLUR_DATA_URL, optimizeImageUrl } from '@/lib/utils';
+import { sanitizeRichText } from '@/lib/sanitize';
 
-export const metadata = {
-  title: "Activities",
-  description: "Browse all past and upcoming events by Shutterscape Photography Club.",
+export const metadata: Metadata = {
+  title: 'Activities & Photowalks',
+  description:
+    'Explore upcoming and past workshops, exhibitions, and photowalks hosted by ShutterScape GCU.',
 };
 
-interface ActivityDoc {
-  _id: string;
-  title: string;
-  description: string;
-  date: string;
-  imageUrl: string;
-}
+export const revalidate = 60;
 
 export default async function ActivitiesPage() {
   await connectDB();
-  const activities: ActivityDoc[] = JSON.parse(
-    JSON.stringify(await Activity.find().sort({ date: -1 }).lean())
-  );
+  const allActivities = await Activity.find().sort({ date: -1 }).lean();
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  // Pin upcoming events at top (sorted descending or closest), followed by past events descending
+  const upcoming = allActivities.filter((a) => new Date(a.date) >= startOfToday);
+  const past = allActivities.filter((a) => new Date(a.date) < startOfToday);
+  const orderedActivities = [...upcoming, ...past];
 
   return (
-    <div className="min-h-screen pt-24 pb-16 px-6">
-      <div className="mx-auto max-w-5xl">
-        <h1 className="section-heading">Our Activities</h1>
-        <p className="section-subheading">
-          A timeline of events, workshops, and photo walks.
+    <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
+      <div className="text-center max-w-2xl mx-auto mb-14">
+        <span className="text-xs font-mono uppercase tracking-widest text-amber-500">
+          Chronicle of Frames
+        </span>
+        <h1 className="mt-2 font-serif text-4xl sm:text-5xl font-bold text-white">
+          Club Activities
+        </h1>
+        <p className="mt-3 text-sm sm:text-base text-zinc-400">
+          From Brahmaputra ghat photowalks to studio lighting bootcamps and annual exhibitions.
         </p>
+      </div>
 
-        {/* Timeline */}
-        <div className="mt-16 relative">
-          {/* Vertical line */}
-          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/10 -translate-x-1/2 hidden md:block" />
+      {orderedActivities.length === 0 ? (
+        <ViewfinderCard className="text-center py-12">
+          <p className="text-zinc-400">No activities published yet. Check back soon!</p>
+        </ViewfinderCard>
+      ) : (
+        <div className="relative">
+          {/* Vertical Timeline Line */}
+          <div
+            className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-amber-500 via-amber-500/30 to-transparent md:left-1/2 md:-translate-x-1/2"
+            aria-hidden="true"
+          />
 
           <div className="space-y-12">
-            {activities.map((activity, idx) => (
-              <div
-                key={activity._id}
-                className={`relative flex flex-col md:flex-row items-center gap-8 ${
-                  idx % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
-                }`}
-              >
-                {/* Dot on timeline */}
-                <div className="absolute left-1/2 -translate-x-1/2 w-4 h-4 bg-primary-500 rounded-full border-4 border-dark hidden md:block z-10" />
+            {orderedActivities.map((activity, idx) => {
+              const isUpcoming = new Date(activity.date) >= startOfToday;
+              const isLeft = idx % 2 === 0;
 
-                {/* Image */}
-                <div className="w-full md:w-1/2">
-                  <div className="relative aspect-video rounded-2xl overflow-hidden">
-                    <Image
-                      src={optimizedImageUrl(activity.imageUrl)}
-                      alt={activity.title}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                    />
+              return (
+                <div
+                  key={String(activity._id)}
+                  className="relative flex flex-col md:flex-row items-start"
+                >
+                  {/* Timeline Dot */}
+                  <div
+                    className={`absolute left-4 -translate-x-1/2 mt-6 flex h-4 w-4 items-center justify-center rounded-full border-2 md:left-1/2 ${isUpcoming
+                        ? 'border-amber-400 bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.9)]'
+                        : 'border-amber-500/60 bg-darkroom-950'
+                      }`}
+                  />
+
+                  <div
+                    className={`w-full pl-10 md:pl-0 md:w-1/2 ${isLeft ? 'md:pr-10' : 'md:ml-auto md:pl-10'
+                      }`}
+                  >
+                    <ViewfinderCard highlighted={isUpcoming}>
+                      {isUpcoming && (
+                        <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-darkroom-950 shadow-[0_0_16px_rgba(245,158,11,0.6)]">
+                          <span className="h-2 w-2 rounded-full bg-darkroom-950 animate-ping" />
+                          <span>UPCOMING</span>
+                        </div>
+                      )}
+
+                      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl mb-4">
+                        <Image
+                          src={optimizeImageUrl(activity.image.url, 800)}
+                          alt={activity.title}
+                          fill
+                          placeholder="blur"
+                          blurDataURL={BLUR_DATA_URL}
+                          className="object-cover rounded-2xl transition-transform duration-500 group-hover:scale-105"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs font-medium text-amber-400">
+                        <Calendar className="h-3.5 w-3.5" />
+                        <time dateTime={new Date(activity.date).toISOString()}>
+                          {new Date(activity.date).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                        </time>
+                      </div>
+
+                      <h2 className="mt-2 font-serif text-2xl font-bold text-white">
+                        {activity.title}
+                      </h2>
+
+                      <div
+                        className="rich-text-content mt-3 text-sm"
+                        dangerouslySetInnerHTML={{
+                          __html: sanitizeRichText(activity.descriptionHtml),
+                        }}
+                      />
+                    </ViewfinderCard>
                   </div>
                 </div>
-
-                {/* Content */}
-                <div className="w-full md:w-1/2 glass-card p-6">
-                  <time className="text-sm text-primary-400 font-medium">
-                    {new Date(activity.date).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </time>
-                  <h2 className="mt-2 text-xl font-semibold text-white">
-                    {activity.title}
-                  </h2>
-                  <div
-                    className="mt-3 text-sm text-gray-400 prose prose-invert prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: activity.description }}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
-
-        {activities.length === 0 && (
-          <p className="text-center text-gray-500 mt-12">
-            No activities yet — check back soon!
-          </p>
-        )}
-      </div>
+      )}
     </div>
   );
 }
